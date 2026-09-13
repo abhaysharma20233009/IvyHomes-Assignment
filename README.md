@@ -4,6 +4,14 @@ A React + Vite property discovery platform built as part of the Ivy Homes assign
 
 The application integrates with the Ivy Homes Property API and provides property listings, rentals, projects, filtering, sorting, property details, saved listings, and analytics-oriented views.
 
+## How To Run 
+   Clone Repository  and
+   run : 
+         
+          cd ivy-homes
+          npm i     
+          npm run dev
+
 ## Features
 
 - 🏠 Property listing discovery
@@ -25,7 +33,7 @@ The application integrates with the Ivy Homes Property API and provides property
 - **API:** Ivy Homes Property API
 - **Authentication:** API Key + Bearer Token
 - **Deployment:** Vercel / Netlify / other hosting
-
+- **LLM:** ChatGPT
 ## API Verification
 
 The provided API reference was treated as a **hypothesis rather than the source of truth**, as instructed.
