@@ -1,14 +1,14 @@
 export default function ProjectCard({ project }) {
   return (
     <article className="project-card">
-      <h3>{project.project_id}</h3>
+      <h3>{project.apartment_name}</h3>
 
       <p>{project.locality}</p>
 
-      <p>
+      <div className="project-price">
         ₹{project.price_min ?? "-"} - ₹
         {project.price_max ?? "-"}
-      </p>
+      </div >
 
       <p>
         Units: {project.total_units ?? "-"}

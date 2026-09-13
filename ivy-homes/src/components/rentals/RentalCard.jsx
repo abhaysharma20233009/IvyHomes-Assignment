@@ -9,10 +9,10 @@ export default function RentalCard({ rental }) {
 
       <p>{rental.locality}</p>
 
-      <p>
+      <div className="rental-price">
         ₹{Number(rental.price || 0).toLocaleString("en-IN")}
         /month
-      </p>
+      </div>
 
       {rental.furnishing && (
         <p>{rental.furnishing}</p>
