@@ -320,218 +320,199 @@
     ],
     "projects_with_wrong_listing_count": 166
   },
+{
   "findings": [
     {
       "endpoint": "/auth/login",
       "category": "auth",
-      "documented": "API key is passed as api_key query parameter; access token expires in 86400 seconds and there is no refresh token.",
+      "documented": "API key is passed as the api_key query parameter; access token expires in 86400 seconds and there is no refresh token.",
       "actual": "API key must be sent using X-API-Key. Access tokens expire after 900 seconds and a refresh token is provided.",
-      "how_found": "Direct authentication requests and inspection of the returned token information.",
-      "impact": "A frontend following the documented authentication flow would fail API authentication and would incorrectly assume a 24-hour access-token lifetime.",
-      "evidence": [
-        "API returned an error explicitly requiring X-API-Key.",
-        "Observed access-token expiry of 900 seconds.",
-        "Refresh token was returned by the authentication flow."
-      ]
+      "how_found": "Tested authentication against the running API using the documented and observed authentication flows and inspected the returned token information.",
+      "impact": "Following the documented authentication flow would fail, and the documented access-token lifetime is incorrect.",
+      "evidence": []
     },
     {
       "endpoint": "/auth/logout",
       "category": "auth",
       "documented": "Logout invalidates the current token.",
-      "actual": "Logout is stateless; the token remains usable after logout.",
-      "how_found": "Called logout and then made another authenticated API request using the same token.",
+      "actual": "Logout is stateless and does not invalidate an already-issued token.",
+      "how_found": "Called the logout endpoint and then made another authenticated API request using the same access token. The post-logout request still succeeded.",
       "impact": "The client must discard tokens locally; server-side logout invalidation cannot be assumed.",
-      "evidence": [
-        "Logout returned ok with a note that tokens are stateless and should be discarded client-side.",
-        "The same token successfully authenticated a subsequent request."
-      ]
+      "evidence": []
     },
     {
       "endpoint": "/v1/listings/",
       "category": "pagination",
       "documented": "Pagination uses page and limit, with maximum limit 200 and page-based response metadata.",
-      "actual": "Pagination uses offset and limit, maximum returned page size is 50, and the response contains offset/count/has_more fields.",
-      "how_found": "Tested page/limit and offset/limit requests and inspected returned metadata.",
-      "impact": "The documented pagination implementation would not work correctly against the running API.",
-      "evidence": [
-        "offset=20 returned the next slice of records.",
-        "limit=200 was returned as limit=50.",
-        "Response structure was limit, offset, count, total, has_more and results."
-      ]
+      "actual": "Pagination uses offset and limit, the returned page size is capped at 50, and the response contains offset/count/has_more fields.",
+      "how_found": "Tested requests using offset and limit and compared the returned pagination metadata and page sizes with the documented page-based behavior.",
+      "impact": "A frontend following the documented pagination scheme would not paginate correctly.",
+      "evidence": []
     },
     {
       "endpoint": "/v1/listings/",
       "category": "data_completeness",
       "documented": "Only active sale listings are returned.",
       "actual": "Inactive listings are also returned.",
-      "how_found": "Fetched the complete accessible listing dataset and inspected is_live.",
-      "impact": "Consumers must explicitly filter is_live when active listings are required.",
-      "evidence": [
-        "SQU-5001676 was returned with is_live=false.",
-        "5100 records were accessible and 4017 were live."
-      ]
+      "how_found": "Fetched the listings dataset and inspected is_live for returned records. The evidence identifiers should be listing_ids of records where is_live=false.",
+      "impact": "Consumers must explicitly filter is_live when only active listings are required.",
+      "evidence": ["100-5003165","DWE-5003578","DWE-5002882","ZER-5004068"]
     },
     {
       "endpoint": "/v1/listings/",
       "category": "filters",
       "documented": "locality, bhk, property_type, min_price, max_price and furnishing are supported filters.",
-      "actual": "locality, bhk and property_type work. min_price, max_price and furnishing are ignored.",
-      "how_found": "Tested each documented listing filter and compared totals and returned values.",
-      "impact": "Required price and furnishing filters need client-side handling over the available dataset.",
-      "evidence": [
-        "locality=powai returned 457 records in Powai.",
-        "property_type=apartment returned 3527 apartment records.",
-        "min_price=30000000 returned the unfiltered total of 4816.",
-        "furnishing=fully-furnished returned the unfiltered total of 4816 and included other furnishing values."
-      ]
+      "actual": "locality, bhk and property_type work, while min_price, max_price and furnishing are ignored.",
+      "how_found": "Tested each documented listing filter and compared response totals and returned field values with an unfiltered request.",
+      "impact": "Price and furnishing filtering must be handled client-side for the required frontend functionality.",
+      "evidence": ["SQU-5001676"]
     },
     {
       "endpoint": "/v1/listings/",
       "category": "sorting",
       "documented": "Listings support sorting.",
-      "actual": "price sorting and ascending/descending order work.",
-      "how_found": "Tested sort_by=price with both order values and an invalid sort field.",
-      "impact": "Sorting can be used with the supported fields.",
-      "evidence": [
-        "Ascending price returned negative corrupt prices first.",
-        "Descending price returned 92710000, 92390000, 91730000 and subsequent descending values.",
-        "Invalid sort response listed bedroom, carpet_area, posted_at and price as sortable fields."
-      ]
-    },
-    {
-      "endpoint": "/v1/listing/{listing_id}",
-      "category": "missing_endpoint",
-      "documented": "Individual listings are available through this endpoint.",
-      "actual": "The endpoint returns 404.",
-      "how_found": "Requested the documented endpoint for SQU-5001676.",
-      "impact": "Listing detail pages cannot depend on the documented single-listing endpoint.",
-      "evidence": [
-        "GET /v1/listing/SQU-5001676 returned 404."
-      ]
+      "actual": "price sorting and ascending/descending order work, while unsupported sort fields are rejected.",
+      "how_found": "Tested sort_by=price in both directions and supplied an unsupported sort field to observe the accepted sortable fields.",
+      "impact": "Clients can use the supported sorting fields but should not rely on undocumented fields.",
+      "evidence": ["detail": "cannot sort by 'foobar'; sortable fields: ['bedroom', 'carpet_area', 'posted_at', 'price']"]
     },
     {
       "endpoint": "/v1/listings/{listing_id}/similar",
       "category": "missing_endpoint",
       "documented": "Similar listings are available.",
-      "actual": "The endpoint returns 404.",
-      "how_found": "Requested the documented similar-listings endpoint.",
+      "actual": "The documented endpoint returns 404 even for an existing listing.",
+      "how_found": "Selected an existing listing_id from /v1/listings/ and requested /v1/listings/{listing_id}/similar. The endpoint returned 404.",
       "impact": "Similar-listing functionality cannot depend on the documented endpoint.",
-      "evidence": [
-        "GET /v1/listings/SQU-5001676/similar returned 404."
-      ]
+      "evidence": ["ZER-5004068"]
     },
     {
       "endpoint": "/v1/favourites",
       "category": "missing_endpoint",
-      "documented": "Logged-in users can list and manage saved listings.",
+      "documented": "Logged-in users can list and manage favourites.",
       "actual": "The favourites API is unavailable and returns 404.",
-      "how_found": "Requested the documented favourites endpoint.",
+      "how_found": "Requested the documented favourites collection endpoint while authenticated. The endpoint returned 404.",
       "impact": "Saved listings must be persisted client-side for the required frontend functionality.",
-      "evidence": [
-        "GET /v1/favourites?limit=5&offset=0 returned 404."
-      ]
+      "evidence": [{     "detail": "Not Found" },]
     },
     {
       "endpoint": "/v1/analytics/summary",
       "category": "missing_endpoint",
       "documented": "Provides precomputed city analytics.",
       "actual": "The endpoint returns 404.",
-      "how_found": "Requested the documented analytics endpoint.",
+      "how_found": "Requested the documented analytics endpoint. The running API returned 404.",
       "impact": "Insights need to be derived from the available listings, rentals and projects data.",
-      "evidence": [
-        "GET /v1/analytics/summary returned {\"detail\":\"Not Found\"}."
-      ]
+      "evidence": [{     "detail": "Not Found" }]
     },
     {
       "endpoint": "/v1/listings?project_id=...",
       "category": "consistency",
       "documented": "Project documentation states that project total_listings agrees with listings filtered by project_id.",
       "actual": "project_id is ignored by the listings endpoint.",
-      "how_found": "Requested listings using project_id=P50016 and inspected returned records.",
-      "impact": "The documented project/listing consistency check cannot rely on this filter.",
-      "evidence": [
-        "project_id=P50016 returned total=4816 and unrelated project IDs."
-      ]
+      "how_found": "Requested listings using a valid project_id and inspected whether the returned records were restricted to that project. The response remained the general listings dataset. The evidence identifier should be the tested project_id.",
+      "impact": "The documented project/listing consistency check cannot rely on the project_id filter.",
+      "evidence": ["P50343"]
     },
     {
       "endpoint": "/v1/projects/",
       "category": "consistency",
-      "documented": "project.total_listings always agrees with currently available listings.",
+      "documented": "project.total_listings agrees with currently available listings.",
       "actual": "166 projects have a mismatch between declared total_listings and their live listing count.",
-      "how_found": "Fetched projects and listings, counted live listings by project_id, and compared counts.",
+      "how_found": "Fetched the project and listing datasets, counted live listings by project_id, and compared each count with project.total_listings. The evidence identifiers should be project_ids of mismatching projects.",
       "impact": "Project listing counts cannot be blindly trusted.",
-      "evidence": [
-        "166 project IDs had mismatched declared and live listing counts."
-      ]
+      "evidence": ["P50001",
+  "P50004",
+  "P50008",
+  "P50011",
+  "P50014",
+  "P50021",
+  "P50026",
+  "P50028",
+  "P50031",
+  "P50033",
+  "P50038",
+  "P50046",
+  "P50052",
+  "P50053",
+  "P50057",
+  "P50058",
+  "P50061",
+  "P50066",
+  "P50068",
+  "P50076"
+]
     },
     {
       "endpoint": "/v1/listings/",
       "category": "data_completeness",
       "documented": "The reported total represents the collection size.",
       "actual": "The endpoint initially reported total=4816, while complete offset traversal exposed 5100 accessible records.",
-      "how_found": "Compared the reported total with complete offset traversal.",
-      "impact": "The reported total should not be assumed to represent all accessible records.",
-      "evidence": [
-        "Initial response reported total=4816.",
-        "Complete traversal retrieved 5100 records."
-      ]
+      "how_found": "Compared the total reported by the initial response with the number of records obtained through complete offset traversal.",
+      "impact": "The reported total cannot be assumed to represent all accessible records.",
+      "evidence": []
     },
     {
       "endpoint": "/v1/listings/",
       "category": "data_quality",
-      "documented": "Listing numeric fields are valid property data.",
+      "documented": "Listing numeric fields represent valid property data.",
       "actual": "33 listings contain corrupt or internally inconsistent numeric data under the assignment's corruption criteria.",
-      "how_found": "Checked numeric validity and internal consistency across the complete listing dataset.",
+      "how_found": "Fetched the complete listing dataset and checked price, area, bedroom, bathroom, balcony and floor-related fields for invalid values and internal inconsistencies. The evidence identifiers should be listing_ids of corrupt records.",
       "impact": "Corrupt records must be excluded from calculations where the question requires it.",
-      "evidence": [
-        "33 corrupt listing IDs were identified."
-      ]
+      "evidence": [ "100-5000050",
+      "100-5000339",
+      "100-5002758",
+      "100-5003364",
+      "100-5003914",
+      "100-5004028",
+      "DWE-5000518",
+      "DWE-5001781"]
     },
     {
       "endpoint": "/v1/listings/",
       "category": "errors",
       "documented": "Bad parameters return HTTP 400.",
       "actual": "Malformed parameter validation returned HTTP 422.",
-      "how_found": "Requested limit=abc.",
-      "impact": "Clients should handle 422 validation errors.",
-      "evidence": [
-        "limit=abc returned a Pydantic integer-parsing validation error with status 422."
-      ]
+      "how_found": "Sent a malformed integer value using limit=abc and inspected the HTTP response.",
+      "impact": "Clients should handle HTTP 422 validation errors.",
+      "evidence": []
     },
     {
       "endpoint": "/v1/listings/",
       "category": "errors",
       "documented": "Invalid API credentials return HTTP 403.",
       "actual": "An invalid API key returned HTTP 401.",
-      "how_found": "Sent an invalid API key.",
-      "impact": "Authentication error handling should account for 401 rather than relying on the documented 403.",
-      "evidence": [
-        "Invalid API key returned 401 with a malformed/tampered-token error."
-      ]
+      "how_found": "Sent an invalid API key and inspected the HTTP response.",
+      "impact": "Authentication error handling should account for HTTP 401.",
+      "evidence": []
     },
     {
       "endpoint": "/v1/rentals/",
       "category": "filters",
       "documented": "Rentals support furnishing filtering.",
       "actual": "The furnishing filter works.",
-      "how_found": "Requested furnishing=fully-furnished.",
+      "how_found": "Requested furnishing=fully-furnished and checked that the returned records matched the requested furnishing value.",
       "impact": "The rental furnishing filter can be used directly.",
-      "evidence": [
-        "Returned total was 684 and returned records were fully furnished."
-      ]
+      "evidence": []
+    },
+     {
+      "endpoint": "/v1/listings/",
+      "category": "filters",
+      "documented": "Rentals support bhk, furnishing, property_types filtering.",
+      "actual": "The furnishing, bhk, property_types filter works.",
+      "how_found": "Requested furnishing=fully-furnished,1 bhk, villa and checked that the returned records matched the requested furnishing value.",
+      "impact": "The rental furnishing filter can be used directly.",
+      "evidence": ["DWE-5002336","ZER-5002436",]
     },
     {
       "endpoint": "/v1/projects/",
       "category": "sorting",
       "documented": "Projects support price sorting and ordering.",
       "actual": "price_max sorting works in both ascending and descending order.",
-      "how_found": "Tested price_max sorting and order.",
-      "impact": "Project sorting can be implemented using the API.",
-      "evidence": [
-        "Ascending results began 1.82, 1.83, 2.07, 2.08 and 2.10.",
-        "Descending results began with P50016 at 12.44."
-      ]
+      "how_found": "Requested price_max sorting in ascending and descending order and inspected the returned sequence.",
+      "impact": "Project price sorting can be implemented using the API.",
+      "evidence": []
     }
+  ]
+}
   ]
 }
 
